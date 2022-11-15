@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"sync"
@@ -13,6 +14,10 @@ import (
 var client = http.Client{}
 
 const apiBase = "https://www.sodexo.fi/ruokalistat/output/daily_json/"
+
+var data struct {
+	LunchInfo
+}
 
 type Course struct {
 	Title     string `json:"title_fi"`
@@ -39,12 +44,18 @@ func getLunch(ctx context.Context, label, restaurantUrl string) error {
 		return err
 	}
 
-	var data struct {
-		LunchInfo
+	err = printLunch(resp.Body, label)
+
+	if err != nil {
+		fmt.Println(label, "decoding err for:", label, err)
+		return err
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		fmt.Println(label, "decoding err:", err)
+	return nil
+}
+
+func printLunch(body io.ReadCloser, label string) error {
+	if err := json.NewDecoder(body).Decode(&data); err != nil {
 		log.Fatal(err)
 		return err
 	}
@@ -85,7 +96,7 @@ func callAll(ctx context.Context, r1, r2 string) {
 func main() {
 	now := time.Now()
 	todayString := now.Format("2006-01-02")
-	fmt.Println(todayString)
+	fmt.Println("Sodexo lunch for date: ", todayString)
 
 	ctx := context.Background()
 	s5Url := apiBase + "107/" + todayString

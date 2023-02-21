@@ -15,6 +15,11 @@ var client = http.Client{}
 
 const apiBase = "https://www.sodexo.fi/ruokalistat/output/daily_json/"
 
+type Restaurant struct {
+	Id   string
+	Name string
+}
+
 type Course struct {
 	Title     string `json:"title_fi"`
 	DietCodes string `json:"dietcodes"`
@@ -40,7 +45,7 @@ func getLunch(ctx context.Context, label, restaurantUrl string) error {
 		return err
 	}
 
-	err = printLunch(resp.Body, label)
+	err = printLunch(resp.Body)
 
 	if err != nil {
 		fmt.Println(label, "decoding err for:", label, err)
@@ -50,12 +55,12 @@ func getLunch(ctx context.Context, label, restaurantUrl string) error {
 	return nil
 }
 
-func printLunch(body io.ReadCloser, label string) error {
+func printLunch(body io.ReadCloser) error {
 	var data struct {
 		LunchInfo
 	}
 	if err := json.NewDecoder(body).Decode(&data); err != nil {
-		log.Fatal(err)
+		log.Fatal("error decoding response: ", err)
 		return err
 	}
 
@@ -66,28 +71,21 @@ func printLunch(body io.ReadCloser, label string) error {
 	return nil
 }
 
-func callAll(ctx context.Context, r1, r2 string) {
+func callAll(ctx context.Context, restaurants []Restaurant, timeNow string) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	var wg sync.WaitGroup
-	wg.Add(2)
-
-	go func() {
-		defer wg.Done()
-		err := getLunch(ctx, "sodexo5", r1)
-		if err != nil {
-			cancel()
-		}
-	}()
-
-	go func() {
-		defer wg.Done()
-		err := getLunch(ctx, "sodexo6", r2)
-		if err != nil {
-			cancel()
-		}
-	}()
-
+	for _, r := range restaurants {
+		wg.Add(1)
+		restaurant := r
+		go func() {
+			defer wg.Done()
+			err := getLunch(ctx, restaurant.Name, apiBase+restaurant.Id+"/"+timeNow)
+			if err != nil {
+				cancel()
+			}
+		}()
+	}
 	wg.Wait()
 	fmt.Println("done with both")
 }
@@ -95,11 +93,12 @@ func callAll(ctx context.Context, r1, r2 string) {
 func main() {
 	now := time.Now()
 	todayString := now.Format("2006-01-02")
+	restaurants := []Restaurant{
+		{Id: "107", Name: "sodexo5"},
+		{Id: "110", Name: "sodexo6"},
+	}
 	fmt.Println("Sodexo lunch for date: ", todayString)
 
 	ctx := context.Background()
-	s5Url := apiBase + "107/" + todayString
-	s6Url := apiBase + "110/" + todayString
-
-	callAll(ctx, s5Url, s6Url)
+	callAll(ctx, restaurants, todayString)
 }

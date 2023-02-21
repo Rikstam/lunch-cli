@@ -15,10 +15,6 @@ var client = http.Client{}
 
 const apiBase = "https://www.sodexo.fi/ruokalistat/output/daily_json/"
 
-var data struct {
-	LunchInfo
-}
-
 type Course struct {
 	Title     string `json:"title_fi"`
 	DietCodes string `json:"dietcodes"`
@@ -55,6 +51,9 @@ func getLunch(ctx context.Context, label, restaurantUrl string) error {
 }
 
 func printLunch(body io.ReadCloser, label string) error {
+	var data struct {
+		LunchInfo
+	}
 	if err := json.NewDecoder(body).Decode(&data); err != nil {
 		log.Fatal(err)
 		return err

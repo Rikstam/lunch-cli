@@ -39,7 +39,12 @@ func getLunch(ctx context.Context, label, restaurantUrl string) error {
 		fmt.Println(label, "request err:", err)
 		return err
 	}
-	resp, err := client.Do(req)
+
+	// Add a timeout to avoid long running requests
+	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
+	defer cancel()
+
+	resp, err := client.Do(req.WithContext(ctx))
 	if err != nil {
 		fmt.Println(label, "response err:", err)
 		return err
